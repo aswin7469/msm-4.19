@@ -39,10 +39,8 @@ int touch_i2c_continue_read(struct i2c_client* client, unsigned short length, un
     msg.buf = data;
 
     for (retry = 0; retry < MAX_I2C_RETRY_TIME; retry++) {
-        if (i2c_transfer(client->adapter, &msg, 1) == 1) {
-            retval = length;
-            break;
-        }
+        if (likely(i2c_transfer(client->adapter, &msg, 1) == 1))
+			return length;
         msleep(20);
     }
     if (retry == MAX_I2C_RETRY_TIME) {
@@ -134,10 +132,8 @@ int touch_i2c_read_block(struct i2c_client* client, u16 addr, unsigned short len
 	msg[1].buf = read_buf;
 
 	for (retry = 0; retry < MAX_I2C_RETRY_TIME; retry++) {
-		if (i2c_transfer(client->adapter, msg, 2) == 2) {
-			retval = length;
-			break;
-		}
+		if (likely(i2c_transfer(client->adapter, msg, 2) == 2))
+			return length;
 		msleep(20);
 	}
 	if (retry == MAX_I2C_RETRY_TIME) {
@@ -170,10 +166,8 @@ int touch_i2c_continue_write(struct i2c_client* client, unsigned short length, u
     msg.len = length;
 
     for (retry = 0; retry < MAX_I2C_RETRY_TIME; retry++) {
-        if (i2c_transfer(client->adapter, &msg, 1) == 1) {
-            retval = length;
-            break;
-        }
+        if (likely(i2c_transfer(client->adapter, &msg, 1) == 1))
+			return length;
         msleep(20);
     }
     if (retry == MAX_I2C_RETRY_TIME) {
@@ -222,10 +216,8 @@ int touch_i2c_write_block(struct i2c_client* client, u16 addr, unsigned short le
     }
 
     for (retry = 0; retry < MAX_I2C_RETRY_TIME; retry++) {
-        if (i2c_transfer(client->adapter, msg, 1) == 1) {
-            retval = length;
-            break;
-        }
+        if (likely(i2c_transfer(client->adapter, msg, 1) == 1))
+			return length;
         msleep(20);
     }
     if (retry == MAX_I2C_RETRY_TIME) {
@@ -249,7 +241,7 @@ int touch_i2c_read_byte(struct i2c_client* client, unsigned short addr)
     int retval = 0;
     unsigned char buf[2] = {0};
 
-    if (!client)    {
+    if (unlikely(!client)) {
         dump_stack();
         return -1;
     }
@@ -276,7 +268,7 @@ int touch_i2c_write_byte(struct i2c_client* client, unsigned short addr, unsigne
     int length_trans = 1;
     unsigned char data_send = data;
 
-    if (!client)    {
+    if (unlikely(!client)) {
         dump_stack();
         return -EINVAL;
     }
@@ -301,7 +293,7 @@ int touch_i2c_read_word(struct i2c_client* client, unsigned short addr)
     int retval;
     unsigned char buf[2] = {0};
 
-    if (!client)    {
+    if (unlikely(!client)) {
         dump_stack();
         return -EINVAL;
     }
@@ -327,7 +319,7 @@ int touch_i2c_write_word(struct i2c_client* client, unsigned short addr, unsigne
     int length_trans = 2;
     unsigned char buf[2] = {data & 0xff, (data >> 8) & 0xff};
 
-    if (!client)    {
+    if (unlikely(!client)) {
         dump_stack();
         return -EINVAL;
     }
@@ -355,12 +347,12 @@ int touch_i2c_read(struct i2c_client *client, char *writebuf, int writelen, char
     int retval = 0;
     int retry = 0;
 
-    if (client == NULL) {
+    if (unlikely(client == NULL)) {
         TPD_INFO("%s: i2c_client == NULL!\n", __func__);
         return -1;
     }
 
-    if (readlen > 0) {
+    if (likely(readlen > 0)) {
         if (writelen > 0) {
             struct i2c_msg msgs[] =
             {
@@ -379,10 +371,8 @@ int touch_i2c_read(struct i2c_client *client, char *writebuf, int writelen, char
             };
 
             for (retry = 0; retry < MAX_I2C_RETRY_TIME; retry++) {
-                if (i2c_transfer(client->adapter, msgs, 2) == 2) {
-                    retval = 2;
-                    break;
-                }
+                if (likely(i2c_transfer(client->adapter, msgs, 2) == 2))
+					return 2;
                 msleep(20);
             }
         } else {
@@ -397,10 +387,8 @@ int touch_i2c_read(struct i2c_client *client, char *writebuf, int writelen, char
             };
 
             for (retry = 0; retry < MAX_I2C_RETRY_TIME; retry++) {
-                if (i2c_transfer(client->adapter, msgs, 1) == 1) {
-                    retval = 1;
-                    break;
-                }
+                if (likely(i2c_transfer(client->adapter, msgs, 1) == 1))
+					return 1;
                 msleep(20);
             }
         }
@@ -428,12 +416,12 @@ int touch_i2c_write(struct i2c_client *client, char *writebuf, int writelen)
     int retval = 0;
     int retry = 0;
 
-    if (client == NULL) {
+    if (unlikely(client == NULL)) {
         TPD_INFO("%s: i2c_client == NULL!", __func__);
         return -1;
     }
 
-    if (writelen > 0) {
+    if (likely(writelen > 0)) {
         struct i2c_msg msgs[] =
         {
             {
@@ -445,10 +433,8 @@ int touch_i2c_write(struct i2c_client *client, char *writebuf, int writelen)
         };
 
         for (retry = 0; retry < MAX_I2C_RETRY_TIME; retry++) {
-            if (i2c_transfer(client->adapter, msgs, 1) == 1) {
-                retval = 1;
-                break;
-            }
+            if (likely(i2c_transfer(client->adapter, msgs, 1) == 1))
+				return 1;
             msleep(20);
         }
         if (retry == MAX_I2C_RETRY_TIME) {
