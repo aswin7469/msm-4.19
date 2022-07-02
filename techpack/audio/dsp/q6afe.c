@@ -248,7 +248,6 @@ struct afe_ctl {
 	struct mutex afe_cmd_lock;
 	struct mutex afe_apr_lock;
 	struct mutex afe_clk_lock;
-	int lsm_afe_ports[MAX_LSM_SESSIONS];
 	int set_custom_topology;
 	int dev_acdb_id[AFE_MAX_PORTS];
 	routing_cb rt_cb;
@@ -10986,32 +10985,7 @@ int __init afe_init(void)
 	return 0;
 }
 
-static bool q6afe_is_afe_lsm_port(int port_id)
-{
-	int i = 0;
 
-	for (i = 0; i < MAX_LSM_SESSIONS; i++) {
-		if (port_id == this_afe.lsm_afe_ports[i])
-			return true;
-	}
-	return false;
-}
-
-/**
- * afe_set_lsm_afe_port_id -
- *            Update LSM AFE port
- * idx: LSM port index
- * lsm_port: LSM port id
-*/
-void afe_set_lsm_afe_port_id(int idx, int lsm_port)
-{
-	if (idx < 0 || idx >= MAX_LSM_SESSIONS) {
-		pr_err("%s: %d Invalid lsm port index\n", __func__, idx);
-		return;
-	}
-	this_afe.lsm_afe_ports[idx] = lsm_port;
-}
-EXPORT_SYMBOL(afe_set_lsm_afe_port_id);
 
 void afe_exit(void)
 {
