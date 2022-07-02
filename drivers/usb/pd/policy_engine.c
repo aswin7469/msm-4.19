@@ -487,6 +487,8 @@ struct usbpd {
 	bool			typec_analog_audio_connected;
 };
 
+static struct usbpd *pd_p;
+
 static LIST_HEAD(_usbpd);	/* useful for debugging */
 
 static const unsigned int usbpd_extcon_cable[] = {
@@ -4692,6 +4694,97 @@ static void usbpd_release(struct device *dev)
 
 static int num_pd_instances;
 
+/* @bsp, 2020/08/04, add to detect SVID */
+int op_usbpd_send_svdm(u16 svid, u8 cmd, enum usbpd_svdm_cmd_type cmd_type,
+		int obj_pos, const u32 *vdos, int num_vdos)
+{
+	struct usbpd *pd = pd_p;
+	u32 svdm_hdr = SVDM_HDR(svid, 0, obj_pos, cmd_type, cmd);
+
+	usbpd_info(&pd->dev, "Send svdm!! svid:%x cmd:%x cmd_type:%x svdm_hdr:%x\n",
+			svid, cmd, cmd_type, svdm_hdr);
+	return usbpd_send_vdm(pd, svdm_hdr, vdos, num_vdos);
+}
+EXPORT_SYMBOL(op_usbpd_send_svdm);
+
+/* @bsp, 2020/04/26 add to support pd pdo selection */
+int op_pdo_select(int vbus_mv, int ibus_ma)
+{
+
+	int i = 0;
+	int rc = 0;
+	u32 pdo = 0;
+	struct usbpd *pd = pd_p;
+
+	for (i = 0; i < ARRAY_SIZE(pd->received_pdos); i++) {
+		pdo = pd->received_pdos[i];
+		if (vbus_mv == PD_SRC_PDO_FIXED_VOLTAGE(pdo) * 50 || pdo == 0)
+			break;
+	}
+
+	mutex_lock(&pd->swap_lock);
+
+	/* Only allowed if we are already in explicit sink contract */
+	if (pd->current_state != PE_SNK_READY || !is_sink_tx_ok(pd)) {
+		usbpd_err(&pd->dev, "%s: cannot select new pdo yet\n", __func__);
+		rc = -EBUSY;
+		goto out;
+	}
+
+	if (i > 7) {
+		usbpd_err(&pd->dev, "%s: inval pdo[0x%x]\n", __func__, pdo);
+		rc = -EINVAL;
+		goto out;
+	}
+
+	if (vbus_mv != PD_SRC_PDO_FIXED_VOLTAGE(pdo) * 50) {
+		if (i > 0) {
+			usbpd_err(&pd->dev, "%s: can not find vbus_mv[%d], the last pdos[%d]=[%d]\n",
+				__func__, vbus_mv, i - 1,
+				PD_SRC_PDO_FIXED_VOLTAGE(pd->received_pdos[i - 1]) * 50);
+		} else {
+			usbpd_err(&pd->dev, "%s: can not find vbus_mv[%d], pdos0=[%d]\n",
+				__func__, vbus_mv,
+				PD_SRC_PDO_FIXED_VOLTAGE(pd->received_pdos[i]) * 50);
+		}
+		rc = -EINVAL;
+		goto out;
+	}
+
+	rc = pd_select_pdo(pd, i + 1, vbus_mv * 1000, ibus_ma * 1000);
+	if (rc) {
+		usbpd_err(&pd->dev, "%s: pd_select_pdo fail, rc=%d\n", __func__, rc);
+		goto out;
+	}
+
+	reinit_completion(&pd->is_ready);
+	pd->send_request = true;
+	kick_sm(pd, 0);
+
+	/* wait for operation to complete */
+	if (!wait_for_completion_timeout(&pd->is_ready, msecs_to_jiffies(1000))) {
+		usbpd_err(&pd->dev, "%s: pdo[%d], vbus_mv[%d], ibus_ma[%d] request timed out\n",
+				__func__, i, vbus_mv, ibus_ma);
+		rc = -ETIMEDOUT;
+		goto out;
+	}
+
+	/* determine if request was accepted/rejected */
+	if (pd->selected_pdo != pd->requested_pdo ||
+			pd->current_voltage != pd->requested_voltage) {
+		usbpd_err(&pd->dev, "%s: request rejected\n", __func__);
+		rc = -EINVAL;
+	}
+
+out:
+	usbpd_info(&pd->dev, "PDO: %d, vbus_mv: %d, ibus_ma: %d, cvol: %d, rvol: %d\n",
+		i, vbus_mv, ibus_ma, pd->current_voltage, pd->requested_voltage);
+	pd->send_request = false;
+	mutex_unlock(&pd->swap_lock);
+	return rc;
+}
+EXPORT_SYMBOL(op_pdo_select);
+
 /**
  * usbpd_create - Create a new instance of USB PD protocol/policy engine
  * @parent - parent device to associate with
@@ -4712,6 +4805,7 @@ struct usbpd *usbpd_create(struct device *parent)
 	if (!pd)
 		return ERR_PTR(-ENOMEM);
 
+	pd_p = pd;
 	device_initialize(&pd->dev);
 	pd->dev.class = &usbpd_class;
 	pd->dev.parent = parent;
