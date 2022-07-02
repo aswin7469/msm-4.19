@@ -24,25 +24,12 @@ config RF_CABLE_DETECT
       will be called RF cable.
       If unsure, say N.
 
-config PSTORE_DEVICE_INFO
-    bool "Log user space messages"
-    depends on PSTORE
-    help
-      add device_info.txt for ramdump.
-
-      If unsure, say N.
-	  
 config BOOTLOADER_LOG
 	tristate "show bootloader log"
 	depends on OF
 	default y
 	help
 	  show bootloader log in kernel
-
-config WB_KERNEL_LOG
-	tristate "reserve kernel log to partition driver"
-	default n
-
 
 config GPIO_SWITCH
 	tristate "use gpio swith"
