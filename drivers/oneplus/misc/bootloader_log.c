@@ -145,7 +145,7 @@ static int persistent_ram_buffer_map(phys_addr_t start, size_t size,
 }
 
 
-static int bootloader_log_probe(struct platform_device *pdev)
+static int __init bootloader_log_probe(struct platform_device *pdev)
 {
 	struct bootloader_log_platform_data *pdata = pdev->dev.platform_data;
 	struct bootloader_log_platform_data of_pdata;
@@ -200,7 +200,7 @@ static const struct of_device_id bootloader_log_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, bootloader_log_of_match);
 
-static struct platform_driver bootloader_log_driver = {
+static struct platform_driver __refdata bootloader_log_driver = {
 	.probe		= bootloader_log_probe,
 	.remove		= __exit_p(bootloader_log_remove),
 	.driver		= {
