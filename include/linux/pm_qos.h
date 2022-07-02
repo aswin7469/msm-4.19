@@ -44,6 +44,8 @@ enum pm_qos_flags_status {
 #define PM_QOS_LATENCY_TOLERANCE_DEFAULT_VALUE	0
 #define PM_QOS_LATENCY_TOLERANCE_NO_CONSTRAINT	(-1)
 
+extern void msm_cpuidle_set_sleep_disable(bool disable);
+
 #define PM_QOS_FLAG_NO_POWER_OFF	(1 << 0)
 
 enum pm_qos_req_type {
